@@ -1,0 +1,97 @@
+# Build and publish the container image — standards MCP-E04 + UNI-14.
+#
+# The test job GATES the publish job (`needs: test`), so a red typecheck/
+# build/test run can never produce a new :latest that a NAS then pulls.
+
+name: Publish Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    # Docs-only pushes must not rebuild. Build tooling bakes the commit SHA and
+    # a build timestamp into image labels, so even a README-only change yields
+    # a NEW DIGEST — which any digest-watcher (Watchtower, a Portainer force
+    # pull) reads as a new image and recreates the live container for nothing.
+    # See reference/rules/docker-deployments.md section 5.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".vscode/**"
+      - ".env.example"
+      - ".gitattributes"
+      - ".editorconfig"
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PINNED_NPM: "10.9.8"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # Gate. Publishing depends on this passing.
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm i -g npm@${{ env.PINNED_NPM }}
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+
+  build-and-push:
+    name: Build and push
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      # A PR builds to prove the Dockerfile still works, but must not push.
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=main-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          # amd64 only, deliberately. Every host in the fleet is x86-64; an
+          # arm64 build runs under QEMU emulation, is far slower, and is
+          # pulled by nobody. Re-add it if an ARM deployment target appears.
+          # See fleet/lessons/docker-multiarch-only-what-you-deploy.
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

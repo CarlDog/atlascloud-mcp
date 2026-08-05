@@ -1,0 +1,82 @@
+# Canonical CI workflow for the npm/TypeScript repos in the fleet.
+#
+# The npm pin (below) is load-bearing, not incidental. node 22 currently ships
+# npm 10.9.8; a newer local npm (11/12) is LENIENT about an internally-
+# inconsistent lockfile that npm 10 REJECTS, so "npm ci passes locally" can be
+# false green. Pinning npm explicitly here — and via
+# "packageManager": "npm@10.9.8" in package.json for local dev — makes local
+# and CI agree, so a broken lockfile fails fast everywhere.
+
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # Keep in sync with node 22's bundled npm and the package.json
+  # "packageManager" field. Bump all three together, deliberately.
+  PINNED_NPM: "10.9.8"
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    strategy:
+      # fail-fast: false so one platform's failure doesn't hide the other's
+      # result — the whole point of a matrix is knowing WHERE it broke.
+      fail-fast: false
+      matrix:
+        # ubuntu (deploy target) + windows (dev machine).
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Pin npm (must match local — see lessons/npm-version-skew)
+        run: npm install --global "npm@${{ env.PINNED_NPM }}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  quality:
+    name: lint + format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Pin npm
+        run: npm install --global "npm@${{ env.PINNED_NPM }}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check

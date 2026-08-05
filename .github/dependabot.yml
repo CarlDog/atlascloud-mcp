@@ -1,0 +1,60 @@
+# Canonical Dependabot config for the fleet.
+#
+# Group NAMES are load-bearing: fleet/scripts/auto-merge-dependabot.py reads
+# them out of the branch ref to decide what it may merge. Do not rename them.
+
+version: 2
+updates:
+  # ── npm (package.json present) ────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - npm
+    groups:
+      npm-dev:
+        dependency-type: development
+        update-types: [minor, patch]
+      npm-runtime:
+        dependency-type: production
+        update-types: [minor, patch]
+      npm-major:
+        update-types: [major]
+
+  # ── GitHub Actions (.github/workflows present) ────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - ci
+    groups:
+      actions-all:
+        update-types: [minor, patch, major]
+
+  # ── Docker (Dockerfile present) ───────────────────────────────────
+  # Deliberately ungrouped and never auto-merged: a base-image bump can
+  # change the runtime out from under the app without any manifest diff
+  # to review.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - docker

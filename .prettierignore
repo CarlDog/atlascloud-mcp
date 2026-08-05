@@ -1,0 +1,14 @@
+dist/
+node_modules/
+coverage/
+*.md
+package-lock.json
+
+# Upstream's original business logic — left untouched for mergeability (see
+# the matching eslint.config.js override and README "Relationship to
+# upstream"). Not reformatted to this fork's prettier config on purpose.
+src/services/
+src/tools/
+src/utils/
+src/types.ts
+src/constants.ts

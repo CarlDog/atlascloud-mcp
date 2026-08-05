@@ -1,8 +1,20 @@
+<!-- fleet-confidence -->
+<!-- /fleet-confidence -->
+
 <p align="center">
   <img src="https://www.atlascloud.ai/logo.svg" alt="Atlas Cloud" width="80" />
 </p>
 
 <h1 align="center">Atlas Cloud MCP Server</h1>
+
+> **This is a fork** of [AtlasCloudAI/mcp-server](https://github.com/AtlasCloudAI/mcp-server)
+> (MIT). Upstream's tool surface (image/video/audio/LLM generation, chat,
+> uploads, balance/usage) is unmodified; this fork adds Docker/Portainer
+> deployment support (dual stdio/HTTP transport, session management, a
+> Host/Origin allowlist, optional bearer auth) for self-hosting on a home
+> NAS/server fleet, rather than the `npx`-per-launch stdio-only model
+> upstream ships. See [CLAUDE.md](CLAUDE.md) "Relationship to upstream" and
+> [STATUS.md](STATUS.md) for what's changed and what's deliberately not.
 
 <p align="center">
   <a href="https://www.npmjs.com/package/atlascloud-mcp"><img src="https://img.shields.io/npm/v/atlascloud-mcp.svg?style=flat&colorA=18181B&colorB=28CF8D" alt="npm version" /></a>
@@ -28,8 +40,15 @@
 
 ## Supported Models
 
+> **Snapshot, not live.** This fork removed `.github/workflows/sync-models.yml`
+> (it depended on a reusable workflow in `AtlasCloudAI/.github` this fork
+> doesn't control), so the list below is a point-in-time snapshot from when
+> this fork was created, not auto-refreshed. See
+> [atlascloud.ai/models](https://www.atlascloud.ai/models) for the live
+> catalog, or ask the `atlas_list_models` tool.
+
 <!-- ATLAS-MODELS:START lang=en campaign=mcp-server -->
-<!-- ⚠️ Auto-generated from the live model catalog by AtlasCloudAI/.github/scripts/update-models-readme.mjs — do not edit by hand. -->
+<!-- ⚠️ Auto-generated from the live model catalog by AtlasCloudAI/.github/scripts/update-models-readme.mjs — do not edit by hand. Snapshot only in this fork; see note above. -->
 - 🎬 **Video** (181) — MiniMax H3 · Youchuan V8.2 · Wan 2.7 Spicy · Seedance 2.0 Mini · HappyHorse-1.1 · Gemini Omni Flash
 - 🎨 **Image** (112) — Reve 2.1 · Youchuan V8.2 · Seedream v5.0 Pro · Nano Banana 2 Lite
 - 🧊 **3D** (7) — Seed3D 2.0 · Hunyuan 3D Rapid · Hunyuan 3D Pro · Tripo H3.1
@@ -130,6 +149,73 @@ Add this to your client's MCP configuration — works with every MCP-compatible 
 
 If you'd rather use Skills than MCP, we also ship an [Atlas Cloud Skills](https://github.com/AtlasCloudAI/atlas-cloud-skills) package for Claude Code and other skill-compatible agents.
 
+### Docker (Streamable HTTP) — self-hosted deployment
+
+The same image supports two transports, selected at start time:
+
+- **stdio (default)** — used when `MCP_PORT` is unset. Standard mode for
+  `docker run -i` invocation by an MCP client, matching every install
+  method above.
+- **HTTP (Streamable HTTP)** — used when `MCP_PORT` is set. Listens on
+  `0.0.0.0:$MCP_PORT` with `POST/GET/DELETE /mcp` (per-session
+  `mcp-session-id`) and `GET /health` (liveness probe). Meant for a
+  long-lived deployment (Portainer, plain Compose) rather than a
+  per-client-launch process.
+
+```bash
+git clone https://github.com/CarlDog/atlascloud-mcp.git
+cd atlascloud-mcp
+cp .env.example .env   # fill in ATLASCLOUD_API_KEY, MCP_ALLOWED_HOSTS, HOST_UPLOAD_DIR
+docker compose up -d --build
+curl http://localhost:3010/health
+# {"status":"ok","version":"1.5.0"}
+```
+
+`MCP_ALLOWED_HOSTS` and `HOST_UPLOAD_DIR` are **required** — the container
+refuses to start without them (see "Securing the HTTP endpoint" below and
+"atlas_upload_media over HTTP" further down). Set both on your Portainer
+stack's environment variables *before* the first deploy.
+
+### Securing the HTTP endpoint
+
+Every tool call on this server can spend real Atlas Cloud credits, so
+treat the HTTP endpoint's exposure deliberately:
+
+- **`MCP_ALLOWED_HOSTS`** (required) — comma-separated **bare hostnames**
+  (no port — the allowlist check strips the port from the incoming `Host`
+  header before comparing) this server accepts on `/mcp`, e.g.
+  `MCP_ALLOWED_HOSTS=your-nas`. The MCP SDK's own DNS-rebinding options are
+  deprecated in favor of external middleware, so this is hand-rolled
+  instead. Without it, a page loaded in a LAN browser could rebind its own
+  hostname to this container's IP and drive tools (including billable
+  generation calls) as a confused deputy — binding `0.0.0.0` inside a
+  container is not itself an access control. The same list also covers the
+  `Origin` header; there is no separate `MCP_ALLOWED_ORIGINS` variable.
+- **`MCP_AUTH_TOKEN`** (optional, recommended) — a bearer token compared
+  with a constant-time check. Unlike some read-mostly, LAN-only MCP
+  servers that skip this, every tool call here is potentially billable, so
+  the extra setup step is worth it. Send `Authorization: Bearer <token>`.
+- **`MCP_SESSION_IDLE_MS`** (optional, default 30 minutes) — evicts an
+  idle MCP session so a client that disappears uncleanly doesn't leak it
+  forever in this long-running container.
+- **`MCP_BIND_HOST`** — defaults to `127.0.0.1` (safe outside a
+  container); `docker-compose.yml` sets it to `0.0.0.0` since a container
+  must bind wide to be reachable at all — the allowlist above is the real
+  boundary, not the bind address.
+
+### `atlas_upload_media` over HTTP
+
+`atlas_upload_media` takes a local `file_path` — fine in stdio mode (the
+MCP process runs on your own machine, co-located with the file), but under
+HTTP transport the path must refer to somewhere **inside the container**,
+not your desktop. `docker-compose.yml` mounts `HOST_UPLOAD_DIR` (a
+required env var, no default — see the compose file's comment for why a
+relative default is unsafe under a Portainer git-stack redeploy) to
+`/data/uploads` inside the container. To upload a file over HTTP
+transport: place it under the directory `HOST_UPLOAD_DIR` points at on the
+host, then call `atlas_upload_media` with
+`file_path: "/data/uploads/<name>"`.
+
 ## Available Tools
 
 | Tool | Description |
@@ -177,7 +263,7 @@ The assistant will:
 
 ### Upload a local image for editing or video generation
 
-> "Edit this image /Users/me/photos/cat.jpg to add a hat"
+> "Edit this image ./photos/cat.jpg to add a hat"
 
 The assistant will:
 1. Use `atlas_upload_media` to upload the local file and get a URL
@@ -234,9 +320,27 @@ npm install
 # Build
 npm run build
 
-# Run in development mode
+# Typecheck (includes tests)
+npm run typecheck
+
+# Test
+npm test
+
+# Lint / format
+npm run lint
+npm run format:check
+
+# Run in development mode (stdio)
 npm run dev
 ```
+
+`eslint.config.js` and `.prettierignore` both carve out upstream's original
+`src/services/`, `src/tools/`, `src/utils/`, `src/types.ts`, and
+`src/constants.ts` from the two rules they predate (`no-explicit-any`,
+`no-unused-vars`, and prettier's own formatting) — that code is left
+untouched deliberately, so `git fetch upstream && git merge` stays
+low-conflict. See [CLAUDE.md](CLAUDE.md) for the full list of deliberate
+deviations from the fleet's usual conventions.
 
 ## More Atlas Cloud Tools
 

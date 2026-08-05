@@ -14,5 +14,10 @@
     "sourceMap": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  // Tests must not reach dist/; tsconfig.typecheck.json covers them instead
+  // (standard MCP-D01/D02). Kept minimal here — not adopting the canonical
+  // template's stricter noUncheckedIndexedAccess/NodeNext/declaration:false,
+  // since those could surface new type errors in upstream's untouched
+  // business logic or change this package's emitted .d.ts shape.
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

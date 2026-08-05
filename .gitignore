@@ -2,3 +2,18 @@ node_modules/
 dist/
 *.tsbuildinfo
 .env
+.env.local
+.env.*.local
+
+# Secret file types
+*.pfx
+*.p12
+*.pem
+*.key
+
+# Virtualenvs (none expected in this TS repo, kept for fleet consistency)
+.venv/
+venv/
+
+# Per-developer tool state
+.claude/settings.local.json

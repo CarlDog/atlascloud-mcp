@@ -1,0 +1,44 @@
+# Canonical .gitleaks.toml for the fleet — standard UNI-03.
+#
+# Everything above the "repo-specific additions" marker is canonical; keep
+# repo-specific entries below the marker so the canonical half stays diffable.
+
+title = "atlascloud-mcp gitleaks config"
+
+[extend]
+useDefault = true
+
+# ── Paths that are noise in every repo ──────────────────────────────────
+[allowlist]
+description = "Fleet-wide path allowlist"
+paths = [
+  '''(^|/)\.venv/''',
+  '''(^|/)venv/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)\.git/''',
+  '''(^|/)dist/''',
+  '''(^|/)build/''',
+  '''(^|/)obj/''',
+  '''(^|/)bin/Debug/''',
+  '''(^|/)bin/Release/''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)pnpm-lock\.yaml$''',
+  '''(^|/)yarn\.lock$''',
+  '''(^|/)poetry\.lock$''',
+  '''(^|/)uv\.lock$''',
+]
+
+# Placeholder values that appear in .env.example, docs and tests. These are
+# deliberately narrow: each matches an obvious dummy, not a shape that a real
+# secret could take. Do not add a pattern here to silence a finding you have
+# not actually inspected — that is how a live credential gets allowlisted.
+regexTarget = "match"
+regexes = [
+  '''(?i)(your|my|the)[-_ ]?(api[-_ ]?key|token|secret|password)[-_ ]?(here)?''',
+  '''(?i)^(x{4,}|\*{4,}|\.{4,})$''',
+  '''(?i)(example|sample|dummy|placeholder|changeme|replace[-_ ]?me)''',
+  '''(?i)<[a-z0-9_-]{2,40}>''',
+]
+
+# --- repo-specific additions below ---
+# None yet.

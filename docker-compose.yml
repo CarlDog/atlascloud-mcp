@@ -1,0 +1,92 @@
+# Compose for local/NAS deployment — standard MCP-E02.
+services:
+  atlascloud-mcp:
+    image: ghcr.io/carldog/atlascloud-mcp:latest
+    container_name: atlascloud-mcp
+    restart: unless-stopped
+    pull_policy: always
+
+    # Port from the fleet registry (claude-fleet-kit
+    # plugins/fleet-kit/standards/ts-mcp-server.md, MCP-E03).
+    ports:
+      - "${HOST_PORT:-3010}:3000"
+
+    environment:
+      # Empty allowed, no `:?` required-syntax: Atlas Cloud's own API permits
+      # unauthenticated catalog browsing (atlas_list_models/atlas_search_docs
+      # hit GET /models with requireAuth:false), so this server intentionally
+      # does NOT fail startup when the key is unset — src/services/
+      # api-client.ts's getApiKey() throws a helpful, tool-scoped error only
+      # when an authenticated tool (generation/chat/balance) is actually
+      # invoked. Get a key at https://www.atlascloud.ai/console/api-keys.
+      ATLASCLOUD_API_KEY: "${ATLASCLOUD_API_KEY:-}"
+
+      MCP_PORT: "3000"
+      # Inside a container the service must bind 0.0.0.0 to be reachable at
+      # all, so loopback is not an access control here. MCP_ALLOWED_HOSTS is
+      # what actually blocks DNS-rebinding from a browser on the host.
+      MCP_BIND_HOST: "0.0.0.0"
+
+      # Required (server refuses to start without it when MCP_PORT is set —
+      # see src/config.ts). Comma-separated Host header values this server
+      # accepts on /mcp. NOTE: bare hostnames only, no port — the allowlist
+      # check strips the port from the incoming Host header before comparing
+      # (src/shared/http-transport.ts's hostAllowed()). Must include whatever
+      # hostname a client actually dials, e.g. your-nas for the mapped
+      # HOST_PORT above. The MCP SDK's own allowedHosts/enableDnsRebinding
+      # options are deprecated in favor of external middleware, so this is
+      # hand-rolled instead (fleet standard MCP-F03). Without this, a page
+      # loaded in a LAN browser could rebind its own hostname to this
+      # container's IP and drive tools (including billable generation calls)
+      # as a confused deputy — "LAN only" is not a real boundary against that
+      # attack shape. The SAME allowlist also covers the Origin header, so
+      # there is no separate MCP_ALLOWED_ORIGINS variable.
+      MCP_ALLOWED_HOSTS: "${MCP_ALLOWED_HOSTS:?MCP_ALLOWED_HOSTS must be set, e.g. your-nas (bare hostname, no port) — see README 'Securing the HTTP endpoint'}"
+
+      # Optional but recommended here (unlike some sibling repos that defer
+      # this for read-mostly, non-billable APIs): every tool call on this
+      # server can spend real Atlas Cloud credits, so gating /mcp behind a
+      # bearer token is worth the small extra setup step. Leave unset to
+      # accept any client that passes the Host/Origin allowlist above.
+      MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN:-}"
+
+      # Evict an MCP session after this many idle milliseconds (no activity,
+      # not total lifetime). Default 30 minutes. Guards against sessions
+      # leaking forever when a client disappears uncleanly.
+      MCP_SESSION_IDLE_MS: "${MCP_SESSION_IDLE_MS:-1800000}"
+
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+
+    volumes:
+      # atlas_upload_media takes a local file_path — fine in stdio mode
+      # (co-located with the caller), but under this HTTP transport the path
+      # must refer to somewhere INSIDE the container. Place files here first
+      # and pass file_path=/data/uploads/<name>. Required with NO relative
+      # default (e.g. `./data/uploads`) on purpose: a relative bind-mount
+      # default breaks under a Portainer git-stack redeploy, which clones
+      # into a fresh directory where the relative path doesn't exist — Docker
+      # then refuses the mount and the container sits in `created` state
+      # forever with nothing to restart it (a real ~10h outage on plex-mcp
+      # from this exact shape). Set HOST_UPLOAD_DIR to a real, stable path.
+      - "${HOST_UPLOAD_DIR:?HOST_UPLOAD_DIR must be set to a stable absolute host path, e.g. /volume1/docker/atlascloud-mcp/uploads — see README 'atlas_upload_media over HTTP'}:/data/uploads"
+
+    # Reaching a service on the DOCKER HOST: a container cannot resolve the
+    # host's own hostname. host-gateway can. Harmless here (Atlas Cloud is
+    # pure external HTTPS with no host-resident dependency) but kept for
+    # fleet consistency. See reference/rules/docker-deployments.md section 1.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Without rotation a chatty container fills the host disk.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
