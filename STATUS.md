@@ -20,6 +20,11 @@ directly via the Portainer UI (2026-08-05) — confirmed live via
 registered as a client alongside atlascloud-mcp locally. One deliberate,
 scoped exception to the "business logic untouched" rule has since landed:
 a disk-backed model-catalog cache in `doc-fetcher.ts` (see "Done" below).
+Content-policy scope for adult/NSFW use is now researched and documented
+(README "Content Policy (Adult/NSFW Content)") — image/video generation
+via the platform's named uncensored models is well-supported; the AUP's
+exact boundary is inferred from marketing, not confirmed by Atlas Cloud
+directly.
 
 ## Done
 
@@ -109,13 +114,33 @@ a disk-backed model-catalog cache in `doc-fetcher.ts` (see "Done" below).
   layer, not just an in-process request-burst guard). Wired into Docker
   via a new required `HOST_CACHE_DIR` bind mount (same
   no-relative-default rule as `HOST_UPLOAD_DIR`, for the same Portainer
-  git-stack reason).
+  git-stack reason). **Live-deployed same day**: `/volume1/docker/
+  atlascloud-mcp/cache` created on the NAS, stack redeployed with
+  `HOST_CACHE_DIR` set (via `portainer_set_stack_env` + the git-stack's
+  auto-pulled `ConfigHash`), confirmed via a real `atlas_list_models`
+  call writing a genuine 571KB `models.json` to that path.
+- **2026-08-05** — **Content Policy (Adult/NSFW Content) researched and
+  documented** in README.md, correcting an over-literal first read.
+  Atlas Cloud's Acceptable Use Policy Section 7 ("Use the Services for
+  illegal/adult content, hate speech, or malware") was initially read
+  as a blanket ban on all adult content. Re-investigated after the
+  operator pushed back with a specific, correct counter-fact: Atlas
+  Cloud markets a genuine, dedicated "uncensored" product line for
+  image/video generation (named models: FLUX Schnell/Dev/Dev LoRA,
+  Z-Image Turbo, Seedream 5.0 Pro, Wan 2.2/2.7 Spicy Infinite, Seedance
+  v1.5 Pro Spicy), explicitly for "professional adult content creators."
+  The AUP clause is genuinely ambiguous ("illegal content OR adult
+  content" vs. "illegal-adult content" i.e. CSAM/non-consent) — the
+  narrower reading is far more consistent with the company's own
+  marketing, but this is inference from public copy, not a legal
+  opinion. Also found: none of this extends to the 62 text/LLM models
+  — no "uncensored chat" positioning exists anywhere. See README
+  "Content Policy (Adult/NSFW Content)" for the full writeup with
+  sources.
 
 ## Next
 
-- Create `/volume1/docker/atlascloud-mcp/cache` on the NAS (mirroring
-  the `HOST_UPLOAD_DIR` setup) and redeploy the Portainer stack with
-  `HOST_CACHE_DIR` set, to pick up the model-catalog cache feature.
+- None outstanding from the original deployment plan.
 
 ## Known gaps
 

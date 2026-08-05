@@ -61,6 +61,7 @@
 ## Contents
 
 - [What You Can Do](#what-you-can-do)
+- [Content Policy (Adult/NSFW Content)](#content-policy-adultnsfw-content)
 - [Quick Start](#quick-start)
 - [Available Tools](#available-tools)
 - [Usage Examples](#usage-examples)
@@ -84,6 +85,51 @@ Ask your AI assistant in plain language — it discovers the right model, builds
 - 💬 **"Summarize this PDF with DeepSeek"** — OpenAI-compatible LLM chat with Claude, GPT, DeepSeek, Qwen, GLM…
 
 Under the hood: model discovery, dynamic per-model parameter schemas (validated before every request so invalid params fail fast without spending credits), media upload, one-step quick-generate, account balance & usage, and documentation search — all exposed as standard MCP tools (see [Available Tools](#available-tools)).
+
+## Content Policy (Adult/NSFW Content)
+
+**Image/video generation: Atlas Cloud runs a genuine, first-party "uncensored"
+product line**, not a loophole. Their own marketing: "the industry's only
+fully uncensored multi-model AI platform," built for "professional adult
+content creators who need full creative control without content moderation
+barriers," generated content "never used for training and never reviewed by
+anyone," 18+ required. Specific model variants are marketed for this: FLUX
+Schnell/Dev/Dev LoRA, Z-Image Turbo, Seedream 5.0 Pro (image); Wan 2.2/2.7
+Spicy Infinite, Seedance v1.5 Pro Spicy (video). Sources:
+[best-uncensored-nsfw-ai-image-generators](https://www.atlascloud.ai/blog/guides/best-uncensored-nsfw-ai-image-generators),
+[models/explore/uncensored](https://www.atlascloud.ai/models/explore/uncensored).
+
+**The Acceptable Use Policy's wording is genuinely ambiguous — read it
+yourself rather than taking any summary at face value.** Section 7 (verbatim,
+[atlascloud.ai/acceptable-use](https://www.atlascloud.ai/acceptable-use)):
+
+> "Use the Services for illegal/adult content, hate speech, or malware."
+
+Read literally, "illegal/adult content" supports two different readings:
+"illegal content, OR adult content" (a blanket ban on all adult content), or
+"illegal adult content" as a compound — content that is both illegal AND
+adult (CSAM, non-consensual depictions) — leaving legal adult content between
+consenting adults unrestricted. Given the company's own extensive, dedicated
+marketing built entirely around legal NSFW image/video generation, the
+narrower reading is far more consistent with their actual product and stated
+boundary (CSAM/non-consent/18+, not "no adult content at all"). But this is
+inference from public marketing copy, not a legal opinion — **if you need
+certainty, ask Atlas Cloud support directly what Section 7 means before
+relying on it.**
+
+**This does NOT extend to the 62 text/LLM models.** Every "uncensored" claim
+found (marketing pages, named models, blog guides) is specifically about
+image/video generation. No equivalent "uncensored chat" product positioning
+exists for `atlas_chat` — those are general-purpose models from mainstream
+labs (OpenAI, DeepSeek, Qwen, etc.) with no stated NSFW policy either way.
+Treat text-model content moderation as an open question, not settled by
+anything found here.
+
+**Practical takeaway**: for adult content, use the specifically-named
+uncensored/Spicy image and video models via `atlas_generate_image` /
+`atlas_generate_video` / `atlas_quick_generate` — that's the platform's
+actual, intended, marketed use case. Don't assume the same latitude applies
+to `atlas_chat`.
 
 ## Quick Start
 
