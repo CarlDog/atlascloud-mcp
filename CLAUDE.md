@@ -31,12 +31,25 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
     here is drift.
   - `src/services/`, `src/tools/`, `src/utils/`, `src/types.ts`,
     `src/constants.ts` — **upstream's original business logic, mostly
-    untouched.** One deliberate, user-approved exception:
-    `src/services/doc-fetcher.ts`'s `getModels()` gained a disk-backed
-    cache layer underneath its existing in-memory one (2026-08-05) — see
-    README "Model catalog cache". Everything else in these directories
-    stays untouched; edit only to pull in an upstream `git merge` — see
-    "Relationship to upstream" below.
+    untouched.** Two deliberate, user-approved exceptions:
+    - `src/services/doc-fetcher.ts`'s `getModels()` gained a disk-backed
+      cache layer underneath its existing in-memory one (2026-08-05) —
+      see README "Model catalog cache".
+    - `src/tools/upload.ts`'s `atlas_upload_media` description (and its
+      `file_path` schema `.describe()`) was extended to explain that
+      "local" means a different filesystem depending on transport —
+      the caller's own machine under stdio, vs. somewhere already
+      inside the container under this fork's HTTP transport
+      (2026-08-05). Text-only; no behavior change. Written because a
+      calling LLM only ever sees a tool's own description, never this
+      repo's README — upstream's original wording assumed stdio-only
+      and gave zero signal that HTTP mode needs a different kind of
+      path, so an LLM would hit a raw `ENOENT` with no way to
+      self-correct.
+
+    Everything else in these directories stays untouched; edit only to
+    pull in an upstream `git merge` — see "Relationship to upstream"
+    below.
   - `Dockerfile`, `docker-compose.yml` — multi-stage build + Compose/
     Portainer deployment, added by this fork.
 
@@ -45,12 +58,14 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
 This is a **deployment-layer fork**, mostly. Business logic
 (`src/services/`, `src/tools/*.ts`, `src/utils/`) stays untouched from
 upstream so `git fetch upstream && git merge` should stay low-conflict —
-with one deliberate exception (`doc-fetcher.ts`'s disk cache, see above),
-made as a scoped, additive change (new imports, new helper functions, one
-call site touched) specifically to keep a future upstream merge on that
-file tractable rather than a full rewrite. Two real, known gaps still
-exist and are deliberately deferred rather than silently patched — see
-"Known gaps" in [STATUS.md](STATUS.md).
+with two deliberate exceptions (`doc-fetcher.ts`'s disk cache and
+`upload.ts`'s transport-aware description, see above). The first is a
+scoped, additive change (new imports, new helper functions, one call
+site touched); the second is text-only (a description string, no logic
+touched at all). Both are kept minimal specifically to keep a future
+upstream merge on either file tractable rather than a full rewrite. Two
+real, known gaps still exist and are deliberately deferred rather than
+silently patched — see "Known gaps" in [STATUS.md](STATUS.md).
 
 An `upstream` remote points at `AtlasCloudAI/mcp-server`. To pull in
 upstream's tool improvements:

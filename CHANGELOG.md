@@ -34,11 +34,25 @@ plus a deployment layer.
 - Disk-backed model-catalog cache (`src/services/doc-fetcher.ts`): a JSON
   snapshot under `ATLASCLOUD_CACHE_DIR` (24h TTL) checked before falling
   back to a live `/models` fetch, refreshed after every live fetch.
-  In-memory TTL bumped 5min → 24h to match. The one deliberate exception
-  to "business logic untouched" — see CLAUDE.md "Relationship to
-  upstream". New required `HOST_CACHE_DIR` bind mount in
+  In-memory TTL bumped 5min → 24h to match. One of two deliberate
+  exceptions to "business logic untouched" — see CLAUDE.md "Relationship
+  to upstream". New required `HOST_CACHE_DIR` bind mount in
   `docker-compose.yml` (same no-relative-default rule as
   `HOST_UPLOAD_DIR`).
+- README "Content Policy (Adult/NSFW Content)": documents Atlas Cloud's
+  genuine, first-party uncensored image/video product line, the
+  Acceptable Use Policy's ambiguous wording, and that none of it extends
+  to the text/LLM models — with sources.
+
+### Changed
+
+- `atlas_upload_media`'s description and `file_path` schema made
+  transport-aware: "local" means the caller's own machine under stdio
+  but somewhere already inside the container under this fork's HTTP
+  transport. Text-only, no logic touched — the second of two deliberate
+  exceptions to "business logic untouched". Upstream's original wording
+  assumed stdio-only and gave an LLM no signal that HTTP mode needs a
+  different kind of path, surfacing as an unguided raw `ENOENT` instead.
 
 ### Fixed
 

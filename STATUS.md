@@ -137,6 +137,22 @@ directly.
   — no "uncensored chat" positioning exists anywhere. See README
   "Content Policy (Adult/NSFW Content)" for the full writeup with
   sources.
+- **2026-08-05** — **`atlas_upload_media` description made
+  transport-aware** (the second deliberate exception to "business logic
+  untouched" — see CLAUDE.md "Relationship to upstream"). Prompted by
+  the operator asking whether tool descriptions are good enough that an
+  LLM doesn't stumble blindly — checking found a real gap: the tool's
+  description and `file_path` schema still assumed stdio-only ("local"
+  = the caller's own machine), with zero signal that under this fork's
+  HTTP transport, "local" means inside the container instead. Traced
+  the actual failure mode: `uploadMedia()` in `api-client.ts` calls
+  `readFile()` with no wrapping try/catch, so a path that only exists
+  on the caller's machine surfaces as a raw, unguided `ENOENT` over
+  HTTP. Fixed with a text-only change (no logic touched): both the
+  tool description and the `file_path` `.describe()` now explain the
+  stdio-vs-HTTP distinction and point at `/data/uploads/<name>` +
+  `HOST_UPLOAD_DIR`. Verified the updated description is actually
+  served via a live `tools/list` call, not just present in source.
 
 ## Next
 

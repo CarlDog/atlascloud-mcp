@@ -20,19 +20,27 @@ Supported file types: images (jpg, png, webp, etc.), videos, and other media fil
 
 IMPORTANT: This upload is intended for temporary use with Atlas Cloud generation tasks only. Uploaded files may be cleaned up periodically. Do NOT use this as a permanent file hosting service. Abuse (e.g., bulk uploads unrelated to generation tasks) may result in API key suspension.
 
+IMPORTANT — transport matters for "local": this MCP server may be running two different ways, and "local" means a different filesystem in each:
+  - stdio (the server runs on the same machine as you, e.g. via a local Claude Desktop/Code config): file_path is a path on YOUR machine, e.g. "/path/to/photos/cat.jpg".
+  - Streamable HTTP (a remote/containerized deployment, e.g. this fork's Docker/Portainer setup): file_path is a path INSIDE THE SERVER'S CONTAINER, not your own machine. The operator must have already placed the file under the container's mounted upload directory (typically /data/uploads/<name> — see that deployment's README/HOST_UPLOAD_DIR docs) BEFORE calling this tool; passing a path that only exists on your own machine will fail with a filesystem error (e.g. ENOENT), since the server process cannot see your local disk at all in this mode.
+  If unsure which transport you're connected over, ask the user, or try the call — a "no such file or directory" error on a path you know exists locally is the signature of this mismatch.
+
 Args:
-  - file_path (string, required): Absolute path to the local file to upload
+  - file_path (string, required): Absolute path to the file to upload, resolved on the MCP SERVER's filesystem (see transport note above — NOT necessarily your own machine).
 
 Returns:
   The publicly accessible download URL of the uploaded file.
 
 Examples:
-  - file_path="/Users/me/photos/cat.jpg" -> uploads and returns a URL like "https://atlas-img.oss-accelerate-overseas.aliyuncs.com/media/xxx.jpg"`,
+  - stdio: file_path="/path/to/photos/cat.jpg" -> uploads and returns a URL like "https://atlas-img.oss-accelerate-overseas.aliyuncs.com/media/xxx.jpg"
+  - Streamable HTTP: file_path="/data/uploads/cat.jpg" (the file was placed under the container's mounted upload directory first) -> same result`,
       inputSchema: {
         file_path: z
           .string()
           .min(1)
-          .describe("Absolute path to the local file to upload"),
+          .describe(
+            "Absolute path to the file to upload, resolved on the MCP SERVER's filesystem. Over stdio this is your own machine; over Streamable HTTP (a remote/containerized deployment) this must be a path already present inside the server's container (e.g. /data/uploads/<name>) — see that deployment's docs."
+          ),
       },
       annotations: {
         readOnlyHint: false,
