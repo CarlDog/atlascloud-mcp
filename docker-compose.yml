@@ -6,6 +6,19 @@ services:
     restart: unless-stopped
     pull_policy: always
 
+    # Attach to Docker's pre-existing default bridge network instead of
+    # letting Compose allocate a new per-stack subnet. This NAS runs ~30
+    # stacks, each normally claiming its own /24 from Docker's default
+    # address pool; that pool is exhausted (confirmed: `docker compose up`
+    # failed with "could not find an available, non-overlapping IPv4
+    # address" trying to create atlascloud-mcp_default). A single-container
+    # stack with no inter-container DNS needs (Atlas Cloud is pure external
+    # HTTPS; host.docker.internal comes from extra_hosts below regardless of
+    # network mode) doesn't need an isolated network, so this sidesteps the
+    # exhaustion without touching the daemon's pool config or any other
+    # stack's network. Mutually exclusive with a `networks:` block.
+    network_mode: bridge
+
     # Port from the fleet registry (claude-fleet-kit
     # plugins/fleet-kit/standards/ts-mcp-server.md, MCP-E03).
     ports:
