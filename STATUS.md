@@ -8,14 +8,16 @@ reference this file.
 
 ## Current phase
 
-Initial fork setup complete: fleet-standard Docker/Portainer deployment
-added on top of [AtlasCloudAI/mcp-server](https://github.com/AtlasCloudAI/mcp-server)
+**Live on the NAS.** Fork setup complete and deployed: fleet-standard
+Docker/Portainer deployment added on top of
+[AtlasCloudAI/mcp-server](https://github.com/AtlasCloudAI/mcp-server)
 v1.5.0, without touching its business logic. Build/test/lint/format, both
-transport modes (stdio + HTTP), and real CI (Test + gitleaks +
-Docker publish, all green on GitHub Actions) are verified working, and the
-image is live on GHCR. Not yet deployed to Portainer — that's the next and
-final step, pending explicit
-go-ahead (deploying a new stack is shared-infra, not a solo decision).
+transport modes (stdio + HTTP), real CI (Test + gitleaks + Docker publish,
+all green on GitHub Actions), and the live Portainer deployment are all
+verified working end to end. Only remaining step: the operator adding a
+real `ATLASCLOUD_API_KEY` (and optionally `MCP_AUTH_TOKEN`) via the
+Portainer UI — deliberately not something this session set, even though
+the value could have been supplied in chat (see "Deploy" below).
 
 ## Done
 
@@ -46,14 +48,46 @@ go-ahead (deploying a new stack is shared-infra, not a solo decision).
   away from upstream's untouched business logic — see CLAUDE.md
   "Conventions"), `CLAUDE.md`, this file.
 
+- **2026-08-05** — **Deployed to Portainer** (stack id 171, endpoint 2).
+  Two real issues hit and fixed during deploy, both left as a durable
+  record here rather than silently patched:
+  - **Docker network address-pool exhaustion.** `docker compose up`
+    failed creating `atlascloud-mcp_default` ("could not find an
+    available, non-overlapping IPv4 address") — this NAS runs ~30
+    stacks, each normally claiming its own subnet. Fixed by adding
+    `network_mode: bridge` to `docker-compose.yml`: attaches to Docker's
+    pre-existing default bridge instead of allocating a new one. Safe
+    here because this is a single-container stack with no
+    inter-container DNS needs; `host.docker.internal` still works via
+    `extra_hosts` regardless of network mode. Verified locally before
+    pushing (container starts, port mapping and healthcheck unchanged).
+  - **`HOST_UPLOAD_DIR` didn't exist yet.** The bind mount target
+    `/volume1/docker/atlascloud-mcp/uploads` had never been created — an
+    expected consequence of `HOST_UPLOAD_DIR` being hard-required with
+    no default (see the "Docker" entry above); created via
+    filesystem-mcp (`/docker/atlascloud-mcp/uploads`) before retrying.
+  - Verified live, not just "stack created": `docker inspect`-equivalent
+    via `portainer_get_container` shows `Running: true`,
+    `NetworkMode: bridge`, the upload bind mount correctly resolved.
+    `curl http://carldog-nas:3010/health` → `{"status":"ok",...}` from
+    off-NAS. A full stdio-equivalent HTTP session (initialize ->
+    `atlas_get_balance`) against the live container confirms
+    `ATLASCLOUD_API_KEY` is genuinely empty (not a stray value) — returns
+    upstream's original friendly "not set" error, exactly as designed.
+  - `MCP_ALLOWED_HOSTS=carldog-nas,localhost,host.docker.internal`,
+    `HOST_PORT=3010`. `ATLASCLOUD_API_KEY`/`MCP_AUTH_TOKEN` deliberately
+    left unset by this session — entering an API key/token into a field
+    isn't something this session does even when the value could have
+    been supplied in chat. The operator adds these directly in the
+    Portainer UI's stack environment variables, then redeploys.
+
 ## Next
 
-- **Deploy to Portainer — needs explicit go-ahead**: set
-  `MCP_ALLOWED_HOSTS`/`HOST_UPLOAD_DIR` on the stack's environment
-  variables *before* the first deploy (a redeploy landing with
-  enforcement on but the allowlist unset is a startup crash-loop, not a
-  soft-fail), then verify with `docker inspect`. This is the only
-  remaining step from the original plan.
+- **Operator action**: add a real `ATLASCLOUD_API_KEY` (required for
+  anything beyond catalog browsing) and optionally `MCP_AUTH_TOKEN` in
+  the Portainer UI under the `atlascloud-mcp` stack's environment
+  variables, then redeploy to pick them up. This is the only remaining
+  step from the original plan.
 
 ## Known gaps
 
@@ -85,7 +119,9 @@ upstream's business logic, which this fork avoids to stay mergeable:
   path-traversal issue in `hono`'s static-file serving — this server uses
   Express, not Hono). Left for Dependabot rather than a manual force-bump
   of the SDK's pinned version.
-- Deploy: not yet deployed. Local Docker Compose verified working.
+- Deploy: **live** on the NAS (Portainer stack 171, `carldog-nas:3010`),
+  `running`/reachable, verified via `portainer_get_container` and a live
+  HTTP request — not just a deploy-success toast.
 
 ## Live validation (2026-08-05)
 
