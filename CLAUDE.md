@@ -30,19 +30,27 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
     Fix bugs upstream (in claude-fleet-kit) and re-propagate; a local edit
     here is drift.
   - `src/services/`, `src/tools/`, `src/utils/`, `src/types.ts`,
-    `src/constants.ts` — **upstream's original business logic, untouched.**
-    Do not edit these except to pull in an upstream `git merge` — see
+    `src/constants.ts` — **upstream's original business logic, mostly
+    untouched.** One deliberate, user-approved exception:
+    `src/services/doc-fetcher.ts`'s `getModels()` gained a disk-backed
+    cache layer underneath its existing in-memory one (2026-08-05) — see
+    README "Model catalog cache". Everything else in these directories
+    stays untouched; edit only to pull in an upstream `git merge` — see
     "Relationship to upstream" below.
   - `Dockerfile`, `docker-compose.yml` — multi-stage build + Compose/
     Portainer deployment, added by this fork.
 
 ## Relationship to upstream
 
-This is a **deployment-layer fork only**. All business logic
-(`src/services/`, `src/tools/*.ts`, `src/utils/`) is untouched from
-upstream, so `git fetch upstream && git merge` should stay low-conflict.
-Two real, known gaps exist and are deliberately deferred rather than
-silently patched — see "Known gaps" in [STATUS.md](STATUS.md).
+This is a **deployment-layer fork**, mostly. Business logic
+(`src/services/`, `src/tools/*.ts`, `src/utils/`) stays untouched from
+upstream so `git fetch upstream && git merge` should stay low-conflict —
+with one deliberate exception (`doc-fetcher.ts`'s disk cache, see above),
+made as a scoped, additive change (new imports, new helper functions, one
+call site touched) specifically to keep a future upstream merge on that
+file tractable rather than a full rewrite. Two real, known gaps still
+exist and are deliberately deferred rather than silently patched — see
+"Known gaps" in [STATUS.md](STATUS.md).
 
 An `upstream` remote points at `AtlasCloudAI/mcp-server`. To pull in
 upstream's tool improvements:

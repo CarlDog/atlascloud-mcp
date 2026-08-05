@@ -31,6 +31,14 @@ plus a deployment layer.
   (`gitleaks.yml`, `test.yml`, `docker-publish.yml`), eslint/prettier
   (scoped to exclude upstream's untouched business logic), `CLAUDE.md`,
   `STATUS.md`.
+- Disk-backed model-catalog cache (`src/services/doc-fetcher.ts`): a JSON
+  snapshot under `ATLASCLOUD_CACHE_DIR` (24h TTL) checked before falling
+  back to a live `/models` fetch, refreshed after every live fetch.
+  In-memory TTL bumped 5min → 24h to match. The one deliberate exception
+  to "business logic untouched" — see CLAUDE.md "Relationship to
+  upstream". New required `HOST_CACHE_DIR` bind mount in
+  `docker-compose.yml` (same no-relative-default rule as
+  `HOST_UPLOAD_DIR`).
 
 ### Fixed
 

@@ -8,16 +8,18 @@ reference this file.
 
 ## Current phase
 
-**Live on the NAS.** Fork setup complete and deployed: fleet-standard
-Docker/Portainer deployment added on top of
+**Live on the NAS, fully credentialed.** Fork setup complete and
+deployed: fleet-standard Docker/Portainer deployment added on top of
 [AtlasCloudAI/mcp-server](https://github.com/AtlasCloudAI/mcp-server)
-v1.5.0, without touching its business logic. Build/test/lint/format, both
-transport modes (stdio + HTTP), real CI (Test + gitleaks + Docker publish,
-all green on GitHub Actions), and the live Portainer deployment are all
-verified working end to end. Only remaining step: the operator adding a
-real `ATLASCLOUD_API_KEY` (and optionally `MCP_AUTH_TOKEN`) via the
-Portainer UI — deliberately not something this session set, even though
-the value could have been supplied in chat (see "Deploy" below).
+v1.5.0. Build/test/lint/format, both transport modes (stdio + HTTP), real
+CI (Test + gitleaks + Docker publish, all green on GitHub Actions), and
+the live Portainer deployment are all verified working end to end. The
+operator has added a real `ATLASCLOUD_API_KEY` and `MCP_AUTH_TOKEN`
+directly via the Portainer UI (2026-08-05) — confirmed live via
+`atlas_get_balance` returning real account data. mnemosyne-mcp is
+registered as a client alongside atlascloud-mcp locally. One deliberate,
+scoped exception to the "business logic untouched" rule has since landed:
+a disk-backed model-catalog cache in `doc-fetcher.ts` (see "Done" below).
 
 ## Done
 
@@ -80,14 +82,40 @@ the value could have been supplied in chat (see "Deploy" below).
     isn't something this session does even when the value could have
     been supplied in chat. The operator adds these directly in the
     Portainer UI's stack environment variables, then redeploys.
+- **2026-08-05** — **Operator added real credentials.** `ATLASCLOUD_API_KEY`
+  and `MCP_AUTH_TOKEN` (a session-generated random token, added by the
+  operator via the Portainer UI, not by this session) are both live —
+  confirmed via `atlas_get_balance` returning real account data through
+  the deployed HTTP endpoint, and via a 401 on `/mcp` without the bearer
+  token.
+- **2026-08-05** — **Registered as a client in mnemosyne-mcp.** Added to
+  that repo's local (gitignored) `.mcp.json` alongside the `mnemosyne`
+  server — no code changes there. Separately recorded (not built) the
+  shape of a deeper illustration integration in mnemosyne's own
+  STATUS.md/ARCHITECTURE.md, without reopening its "image generation:
+  out of scope for v0" decision.
+- **2026-08-05** — **Disk-backed model-catalog cache** (the one
+  deliberate exception to "business logic untouched" — see CLAUDE.md
+  "Relationship to upstream"). `src/services/doc-fetcher.ts`'s
+  `getModels()` now checks a JSON snapshot on disk
+  (`ATLASCLOUD_CACHE_DIR`, 24h TTL) before falling back to a live
+  `/models` fetch, and persists after every live fetch. Verified
+  directly: a cold run live-fetched 387 models (~700ms) and wrote the
+  cache file; a completely fresh process then loaded the same 387
+  models from disk in 3ms with zero network calls; a cache file with
+  its `fetchedAt` manually rewound 25h was correctly treated as stale
+  and triggered a live re-fetch that refreshed the file. In-memory TTL
+  also bumped 5min → 24h to match (now meaningfully backed by the disk
+  layer, not just an in-process request-burst guard). Wired into Docker
+  via a new required `HOST_CACHE_DIR` bind mount (same
+  no-relative-default rule as `HOST_UPLOAD_DIR`, for the same Portainer
+  git-stack reason).
 
 ## Next
 
-- **Operator action**: add a real `ATLASCLOUD_API_KEY` (required for
-  anything beyond catalog browsing) and optionally `MCP_AUTH_TOKEN` in
-  the Portainer UI under the `atlascloud-mcp` stack's environment
-  variables, then redeploy to pick them up. This is the only remaining
-  step from the original plan.
+- Create `/volume1/docker/atlascloud-mcp/cache` on the NAS (mirroring
+  the `HOST_UPLOAD_DIR` setup) and redeploy the Portainer stack with
+  `HOST_CACHE_DIR` set, to pick up the model-catalog cache feature.
 
 ## Known gaps
 

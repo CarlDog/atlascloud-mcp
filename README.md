@@ -216,6 +216,31 @@ transport: place it under the directory `HOST_UPLOAD_DIR` points at on the
 host, then call `atlas_upload_media` with
 `file_path: "/data/uploads/<name>"`.
 
+### Model catalog cache
+
+Upstream caches the `/models` catalog (used by `atlas_list_models`,
+`atlas_search_docs`, and internally by every generate tool) in memory for
+24 hours. This fork adds a **disk-backed** layer underneath that in-memory
+cache (`src/services/doc-fetcher.ts`): on a cache miss, it first checks a
+JSON snapshot on disk before hitting the live API, and writes a fresh
+snapshot after any live fetch. This means a container restart doesn't
+pay for a live re-fetch as long as the snapshot is under 24h old — useful
+since this NAS runs the container as a long-lived Portainer stack that
+can restart (redeploys, host reboots) far more often than the catalog
+itself changes.
+
+- **Docker**: `HOST_CACHE_DIR` (required, no relative default — same
+  Portainer git-stack redeploy risk as `HOST_UPLOAD_DIR` above) is
+  mounted to `/data/cache`.
+- **stdio/local**: no setup needed — defaults to a directory under the
+  OS temp dir. Override with `ATLASCLOUD_CACHE_DIR` if you want a stable
+  location.
+- The cache is unauthenticated-catalog data only (the same response
+  regardless of API key), so there's nothing sensitive in the cache file.
+- A stale (>24h) or corrupt/missing cache file is silently treated as a
+  miss and triggers a normal live fetch — this is purely a performance
+  optimization, never a hard dependency.
+
 ## Available Tools
 
 | Tool | Description |

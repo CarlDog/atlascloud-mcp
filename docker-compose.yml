@@ -70,6 +70,12 @@ services:
 
       LOG_LEVEL: "${LOG_LEVEL:-info}"
 
+      # Persists the /models catalog to disk (src/services/doc-fetcher.ts) so
+      # a container restart doesn't need a fresh live fetch — the in-memory
+      # cache alone resets on every restart. Points at the HOST_CACHE_DIR
+      # bind mount below.
+      ATLASCLOUD_CACHE_DIR: "/data/cache"
+
     volumes:
       # atlas_upload_media takes a local file_path — fine in stdio mode
       # (co-located with the caller), but under this HTTP transport the path
@@ -82,6 +88,14 @@ services:
       # forever with nothing to restart it (a real ~10h outage on plex-mcp
       # from this exact shape). Set HOST_UPLOAD_DIR to a real, stable path.
       - "${HOST_UPLOAD_DIR:?HOST_UPLOAD_DIR must be set to a stable absolute host path, e.g. /volume1/docker/atlascloud-mcp/uploads — see README 'atlas_upload_media over HTTP'}:/data/uploads"
+
+      # Same relative-default risk as HOST_UPLOAD_DIR above -- required, no
+      # default. Unlike HOST_UPLOAD_DIR, a missing/unwritable cache dir would
+      # only degrade the app to always-live-fetch (loadDiskCache/saveDiskCache
+      # both fail soft) -- but the Docker-level bind-mount refusal itself
+      # (container stuck in `created`) doesn't care about that graceful
+      # in-app handling, so this gets the same hard-required treatment.
+      - "${HOST_CACHE_DIR:?HOST_CACHE_DIR must be set to a stable absolute host path, e.g. /volume1/docker/atlascloud-mcp/cache — see README 'Model catalog cache'}:/data/cache"
 
     # Reaching a service on the DOCKER HOST: a container cannot resolve the
     # host's own hostname. host-gateway can. Harmless here (Atlas Cloud is
