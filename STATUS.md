@@ -8,11 +8,13 @@ reference this file.
 
 ## Current phase
 
-Initial fork setup: adding fleet-standard Docker/Portainer deployment on
-top of [AtlasCloudAI/mcp-server](https://github.com/AtlasCloudAI/mcp-server)
-v1.5.0, without touching its business logic. Local build/test/lint/format
-and both transport modes (stdio + HTTP) are verified working. Not yet
-deployed to Portainer — that's the next and final step, pending explicit
+Initial fork setup complete: fleet-standard Docker/Portainer deployment
+added on top of [AtlasCloudAI/mcp-server](https://github.com/AtlasCloudAI/mcp-server)
+v1.5.0, without touching its business logic. Build/test/lint/format, both
+transport modes (stdio + HTTP), and real CI (Test + gitleaks +
+Docker publish, all green on GitHub Actions) are verified working, and the
+image is live on GHCR. Not yet deployed to Portainer — that's the next and
+final step, pending explicit
 go-ahead (deploying a new stack is shared-infra, not a solo decision).
 
 ## Done
@@ -46,15 +48,12 @@ go-ahead (deploying a new stack is shared-infra, not a solo decision).
 
 ## Next
 
-- CHANGELOG.md entry for the `0.1.0`-equivalent fork baseline.
-- Cross-repo housekeeping in `claude-fleet-kit`: port-3010 registry row +
-  `register.yml` entry + plugin.json version bump (same commit).
-- First push to `main` (triggers `test.yml` + `docker-publish.yml`).
-- Deploy to Portainer — **needs explicit go-ahead**: set
+- **Deploy to Portainer — needs explicit go-ahead**: set
   `MCP_ALLOWED_HOSTS`/`HOST_UPLOAD_DIR` on the stack's environment
   variables *before* the first deploy (a redeploy landing with
   enforcement on but the allowlist unset is a startup crash-loop, not a
-  soft-fail), then verify with `docker inspect`.
+  soft-fail), then verify with `docker inspect`. This is the only
+  remaining step from the original plan.
 
 ## Known gaps
 
@@ -77,7 +76,9 @@ upstream's business logic, which this fork avoids to stay mergeable:
 - Lint: clean (`npm run lint`, with upstream's `src/services|tools|utils`
   scoped out of the two rules it predates).
 - Format: clean (`npm run format:check`, same scoping).
-- CI: not yet run (no push to `main` yet).
+- CI: green on `main` (Test matrix, quality, gitleaks, Publish Docker
+  image all passed on the real GitHub Actions run, not just local
+  reproduction). Image published: `ghcr.io/carldog/atlascloud-mcp:latest`.
 - npm audit: 3 vulnerabilities remain (1 low, 2 moderate), all in
   transitive dependencies of `@modelcontextprotocol/sdk` not exercised by
   this server's runtime code (a dev-server-only `esbuild` flaw, a Windows
@@ -108,15 +109,23 @@ be **bare hostnames, no port** (e.g. `your-nas`, not `your-nas:3010`) —
 comparing. Documented in `docker-compose.yml`'s inline comment and
 CLAUDE.md.
 
+Full stdio round-trip with `ATLASCLOUD_API_KEY` unset, against the real
+Atlas Cloud API (not mocked): `atlas_list_models` with `type="Image"`
+returned 121 real, current models — confirms unauthenticated catalog
+browsing actually works end-to-end, not just that the code compiles.
+`atlas_get_balance` (an authenticated tool) in the same no-key session
+returned `isError: true` with upstream's original friendly
+"ATLASCLOUD_API_KEY is not set" message — confirms the fail-gracefully
+path (Phase 2's whole point) rather than a startup crash.
+
 ## Open questions (still to validate)
 
 - Real end-to-end test of `atlas_upload_media` over HTTP transport with a
   file placed under the mounted `HOST_UPLOAD_DIR` (the mitigation for its
   local-`file_path` assumption breaking across the stdio/HTTP boundary) —
-  not yet run against a live Atlas Cloud account.
-- A real `ATLASCLOUD_API_KEY`-backed smoke test of an authenticated tool
-  (`atlas_get_balance`, `atlas_generate_image`) — validation so far
-  confirms the *unauthenticated* catalog-browsing path and the transport
-  layer; the API-key-required path is only confirmed to fail with
-  upstream's existing friendly error message, not confirmed to succeed
-  with a real key.
+  needs a real, funded Atlas Cloud API key (the upload endpoint requires
+  auth), not yet run.
+- A real `ATLASCLOUD_API_KEY`-backed smoke test of a billable tool
+  (`atlas_generate_image`, `atlas_chat`) succeeding end-to-end — validation
+  so far confirms the unauthenticated path and the no-key failure path,
+  not a real generation call.
