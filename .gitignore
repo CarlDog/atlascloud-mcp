@@ -17,3 +17,6 @@ venv/
 
 # Per-developer tool state
 .claude/settings.local.json
+
+# Local agent state
+.serena/
