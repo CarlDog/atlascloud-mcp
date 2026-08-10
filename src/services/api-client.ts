@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import { basename } from "path";
-import { ProxyAgent, type Dispatcher } from "undici";
+import { ProxyAgent, fetch as undiciFetch, type Dispatcher } from "undici";
 import {
   API_BASE,
   LLM_API_BASE,
@@ -12,7 +12,14 @@ import {
 } from "../constants.js";
 import type { UploadResponse } from "../types.js";
 
-// Auto-detect proxy env vars for Node.js fetch
+// Auto-detect proxy env vars. The dispatcher this returns is only honoured
+// because every request below goes through undici's own fetch (imported
+// above), not the global one: Node's global fetch is served by the undici
+// bundled inside Node, so a ProxyAgent from this package is a foreign object
+// to it and the `dispatcher` option can be silently ignored — the proxy is
+// then bypassed with no error at all. Whether global fetch honours it varies
+// by Node major, so it would break at a base-image bump rather than at the
+// change that introduced it. Keep these calls on undiciFetch.
 function getProxyDispatcher(): Dispatcher | undefined {
   const proxyUrl =
     process.env.https_proxy ||
@@ -134,7 +141,7 @@ async function request<T>(
     const timer = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(url, {
+      const response = await undiciFetch(url, {
         method,
         headers: finalHeaders,
         body: body ? JSON.stringify(body) : undefined,
@@ -232,7 +239,7 @@ export async function uploadMedia(filePath: string): Promise<UploadResponse> {
   const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
   try {
-    const response = await fetch(url, {
+    const response = await undiciFetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -273,7 +280,7 @@ export async function fetchExternal(url: string): Promise<unknown> {
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch(url, {
+      const response = await undiciFetch(url, {
         signal: controller.signal,
         ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}),
       } as any);
