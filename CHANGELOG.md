@@ -56,6 +56,19 @@ plus a deployment layer.
 
 ### Fixed
 
+- A session the server no longer knows now answers **HTTP 404, not 400**.
+  Idle sessions are evicted after 30 minutes by design, but the Streamable
+  HTTP spec (2025-06-18, Session Management §3/§4) makes 404 the client's
+  *only* defined signal to start a new session by re-initializing. Returning
+  400 read as a generic protocol error, so a routine eviction presented to
+  the client as a dead connection until it was restarted by hand — observed
+  live on servarr-mcp, then found identically in six fleet servers and in
+  the canonical `http-transport.ts` they all copy.
+- Bumped `@modelcontextprotocol/sdk` to `^1.30.0`. The lockfile had pinned
+  1.27.1, where driving `StreamableHTTPServerTransport` overflows the stack
+  (`RangeError: Maximum call stack size exceeded` in
+  `webStandardStreamableHttp.js`). Every other fleet repo was already on
+  1.30.0; this one was the outlier.
 - `SERVER_VERSION` hardcoded `"1.4.0"` in `src/index.ts` while
   `package.json` said `"1.5.0"` — now sourced from `src/shared/version.ts`
   and asserted equal to `package.json` by `version-sync.test.ts`.

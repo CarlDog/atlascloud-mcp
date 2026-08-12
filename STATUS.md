@@ -4,9 +4,18 @@
 CLAUDE.md, README.md, MEMORY.md, or an OpenChronicle memory — those
 reference this file.
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-12
 
 ## Current phase
+
+**2026-08-12 — terminated sessions now answer HTTP 404, not 400**, per the
+Streamable HTTP spec (2025-06-18, Session Management §3/§4), which makes 404
+the client's only defined signal to re-initialize after the idle sweep evicts
+a session. Fleet-wide fix originating in the canonical
+`src/shared/http-transport.ts`. Bumped `@modelcontextprotocol/sdk` to
+`^1.30.0` in the same pass: the lockfile had pinned 1.27.1, where driving the
+HTTP transport overflows the stack — this repo was the only one still on it.
+
 
 **Live on the NAS, fully credentialed.** Fork setup complete and
 deployed: fleet-standard Docker/Portainer deployment added on top of
