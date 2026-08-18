@@ -221,8 +221,12 @@ upstream's business logic, which this fork avoids to stay mergeable:
 
 ## Health
 
-- Tests: 2 passed (version-sync only — upstream has no test suite of its
-  own; this fork doesn't add coverage for business logic it didn't write).
+- Tests: 14 passed across 4 files. Upstream has no test suite of its own;
+  this fork's coverage is otherwise deployment-layer only (transport,
+  version-sync), plus one narrow exception —
+  `src/services/api-client.test.ts` (added 2026-08-18, see above), which
+  guards the `fetchWithCause()` `FORK-LOCAL PATCH` this fork itself added,
+  not upstream's original business logic.
 - Lint: clean (`npm run lint`, with upstream's `src/services|tools|utils`
   scoped out of the two rules it predates).
 - Format: clean (`npm run format:check`, same scoping).

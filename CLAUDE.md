@@ -61,6 +61,16 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
       fleet-wide sweep prompted by a live incident in downloader-mcp.
       `src/utils/error-handler.ts` needed no change — it already relays
       `error.message` verbatim, which now carries the enriched text.
+      **Load-bearing invariant (added same day after a regression):**
+      `fetchWithCause()` must only construct a `new Error(...)` when there
+      is an actual `.cause` message to fold in; otherwise it must rethrow
+      the original caught error completely unchanged. An earlier version
+      rewrapped unconditionally, which silently reset `.name` to `"Error"`
+      on every path — including a timeout abort, whose real `.name` is
+      `"AbortError"` — and `isRetryable()` (same file) reads `error.name`
+      to decide whether to retry. Getting this wrong doesn't error; it
+      just silently stops retrying every timeout fleet-wide. Guarded by
+      `src/services/api-client.test.ts`.
 
     Everything else in these directories stays untouched; edit only to
     pull in an upstream `git merge` — see "Relationship to upstream"
