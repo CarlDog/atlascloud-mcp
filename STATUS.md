@@ -4,9 +4,24 @@
 CLAUDE.md, README.md, MEMORY.md, or an OpenChronicle memory — those
 reference this file.
 
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-18
 
 ## Current phase
+
+**2026-08-18 — transport failures now surface their real cause
+(MCP-F08).** `api-client.ts`'s three `undiciFetch` call sites shared Node
+global `fetch`'s bare `"fetch failed"` opacity on a network-level error
+(undici's own `fetch()`, used here for the MCP-F07 proxy fix, has the
+identical wrapping — only undici's low-level `request()` avoids it, verified
+empirically). Found via a fleet-wide sweep prompted by a live incident in
+downloader-mcp (a stale upstream URL stayed silently broken because every
+failure just said "fetch failed"). Fixed via a new local
+`fetchWithCause()` in `api-client.ts` — a fourth `FORK-LOCAL PATCH`
+exception, marked in the commit and in CLAUDE.md alongside the other
+three. `error-handler.ts` needed no change; it already relays
+`error.message` verbatim. Verified: typecheck, build, test (13/13), lint,
+format:check all clean, plus a live empirical check against a closed port
+(`fetch failed: connect ECONNREFUSED ...`).
 
 **2026-08-12 — terminated sessions now answer HTTP 404, not 400**, per the
 Streamable HTTP spec (2025-06-18, Session Management §3/§4), which makes 404

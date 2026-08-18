@@ -31,7 +31,7 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
     here is drift.
   - `src/services/`, `src/tools/`, `src/utils/`, `src/types.ts`,
     `src/constants.ts` — **upstream's original business logic, mostly
-    untouched.** Two deliberate, user-approved exceptions:
+    untouched.** Four deliberate, marked `FORK-LOCAL PATCH` exceptions:
     - `src/services/doc-fetcher.ts`'s `getModels()` gained a disk-backed
       cache layer underneath its existing in-memory one (2026-08-05) —
       see README "Model catalog cache".
@@ -46,6 +46,21 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
       and gave zero signal that HTTP mode needs a different kind of
       path, so an LLM would hit a raw `ENOENT` with no way to
       self-correct.
+    - `src/services/api-client.ts` routes its three raw fetch calls
+      through undici's own `fetch` (not global `fetch`) so a
+      `ProxyAgent` dispatcher is actually honoured (2026-08-10,
+      `52371ae` — fleet standard MCP-F07; global fetch is served by a
+      *different* undici module instance than the installed package, so
+      a foreign `Agent`/`ProxyAgent` can be silently ignored).
+    - `src/services/api-client.ts`'s three fetch call sites route
+      through a new local `fetchWithCause()` wrapper (2026-08-18, fleet
+      standard MCP-F08) — undici's own `fetch()` (used here since the
+      MCP-F07 fix above) shares Node global `fetch`'s bare
+      `"fetch failed"` opacity on a network-level error, discarding the
+      real DNS/connect/TLS reason in `error.cause`. Found via a
+      fleet-wide sweep prompted by a live incident in downloader-mcp.
+      `src/utils/error-handler.ts` needed no change — it already relays
+      `error.message` verbatim, which now carries the enriched text.
 
     Everything else in these directories stays untouched; edit only to
     pull in an upstream `git merge` — see "Relationship to upstream"
@@ -58,14 +73,16 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
 This is a **deployment-layer fork**, mostly. Business logic
 (`src/services/`, `src/tools/*.ts`, `src/utils/`) stays untouched from
 upstream so `git fetch upstream && git merge` should stay low-conflict —
-with two deliberate exceptions (`doc-fetcher.ts`'s disk cache and
-`upload.ts`'s transport-aware description, see above). The first is a
-scoped, additive change (new imports, new helper functions, one call
-site touched); the second is text-only (a description string, no logic
-touched at all). Both are kept minimal specifically to keep a future
-upstream merge on either file tractable rather than a full rewrite. Two
-real, known gaps still exist and are deliberately deferred rather than
-silently patched — see "Known gaps" in [STATUS.md](STATUS.md).
+with four deliberate exceptions, all marked `FORK-LOCAL PATCH` in their
+commit messages (`doc-fetcher.ts`'s disk cache, `upload.ts`'s
+transport-aware description, and `api-client.ts`'s two undici-related
+fixes — proxy dispatcher honouring and transport-error cause surfacing —
+see above). Each is kept minimal and additive (new imports, new helper
+functions, existing call sites redirected to them) specifically to keep
+a future upstream merge on `api-client.ts` tractable rather than a full
+rewrite. Two real, known gaps still exist and are deliberately deferred
+rather than silently patched — see "Known gaps" in
+[STATUS.md](STATUS.md).
 
 An `upstream` remote points at `AtlasCloudAI/mcp-server`. To pull in
 upstream's tool improvements:

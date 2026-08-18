@@ -34,6 +34,36 @@ function getProxyDispatcher(): Dispatcher | undefined {
 
 const proxyDispatcher = getProxyDispatcher();
 
+// FORK-LOCAL PATCH (not upstream). Keep this delta when rebasing on
+// AtlasCloudAI/mcp-server -- upstream still has the original form.
+//
+// Wraps undiciFetch so a network-level failure surfaces its real cause
+// instead of the generic "fetch failed" (fleet standard MCP-F08). Both
+// Node's global fetch() and undici's own fetch() (used here) throw that
+// bare TypeError on any DNS/connect/TLS failure, discarding the real
+// reason in error.cause -- undici's low-level request() avoids this, but
+// fetch() shares Node global fetch's identical wrapping (verified
+// empirically). Must be folded into the message itself: handleError()
+// (src/utils/error-handler.ts, the final sink before a tool response)
+// only ever reads error.message. Found live in downloader-mcp
+// (2026-08-18): a stale upstream URL stayed silently broken because
+// every failure just said "fetch failed"; a same-day fleet sweep found
+// the identical gap here.
+async function fetchWithCause(
+  url: string,
+  init: Parameters<typeof undiciFetch>[1],
+): Promise<Awaited<ReturnType<typeof undiciFetch>>> {
+  try {
+    return await undiciFetch(url, init);
+  } catch (err) {
+    const base = err instanceof Error ? err.message : String(err);
+    const cause = err instanceof Error ? err.cause : undefined;
+    const causeMsg =
+      cause instanceof Error ? cause.message : cause ? String(cause) : "";
+    throw new Error(causeMsg ? `${base}: ${causeMsg}` : base, { cause: err });
+  }
+}
+
 // Custom error class that preserves HTTP status code
 export class ApiRequestError extends Error {
   constructor(
@@ -141,7 +171,7 @@ async function request<T>(
     const timer = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await undiciFetch(url, {
+      const response = await fetchWithCause(url, {
         method,
         headers: finalHeaders,
         body: body ? JSON.stringify(body) : undefined,
@@ -239,7 +269,7 @@ export async function uploadMedia(filePath: string): Promise<UploadResponse> {
   const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
   try {
-    const response = await undiciFetch(url, {
+    const response = await fetchWithCause(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -280,7 +310,7 @@ export async function fetchExternal(url: string): Promise<unknown> {
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await undiciFetch(url, {
+      const response = await fetchWithCause(url, {
         signal: controller.signal,
         ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}),
       } as any);
