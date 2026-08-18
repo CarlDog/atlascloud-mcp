@@ -49,6 +49,18 @@ const proxyDispatcher = getProxyDispatcher();
 // (2026-08-18): a stale upstream URL stayed silently broken because
 // every failure just said "fetch failed"; a same-day fleet sweep found
 // the identical gap here.
+//
+// FORK-LOCAL PATCH amendment (2026-08-18, fleet standard MCP-F08 regression
+// fix): only construct a new Error when there's an actual cause to fold in.
+// The original version above always threw `new Error(...)`, which resets
+// .name to "Error" even when nothing was appended to the message (e.g. a
+// timeout abort, whose err.cause is undefined). isRetryable() branches on
+// `error.name === "AbortError"` -- rewrapping unconditionally silently
+// turned every timeout into a non-retryable error fleet-wide, since the
+// rewrapped Error's .name no longer matched and its message ("This
+// operation was aborted") doesn't contain "fetch" either. Rethrow the
+// original error completely unchanged (preserving .name/.cause/subclass
+// identity) whenever there's no cause message to add.
 async function fetchWithCause(
   url: string,
   init: Parameters<typeof undiciFetch>[1],
@@ -56,11 +68,12 @@ async function fetchWithCause(
   try {
     return await undiciFetch(url, init);
   } catch (err) {
-    const base = err instanceof Error ? err.message : String(err);
-    const cause = err instanceof Error ? err.cause : undefined;
+    if (!(err instanceof Error)) throw err;
+    const cause = err.cause;
     const causeMsg =
       cause instanceof Error ? cause.message : cause ? String(cause) : "";
-    throw new Error(causeMsg ? `${base}: ${causeMsg}` : base, { cause: err });
+    if (!causeMsg) throw err;
+    throw new Error(`${err.message}: ${causeMsg}`, { cause: err });
   }
 }
 

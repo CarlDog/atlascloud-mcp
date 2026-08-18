@@ -8,6 +8,29 @@ reference this file.
 
 ## Current phase
 
+**2026-08-18 — fixed a same-day regression in the MCP-F08 fix: timeouts had
+silently stopped retrying.** The `fetchWithCause()` helper added earlier
+today (see the entry directly below) unconditionally rewrapped every caught
+error in `new Error(...)` to fold in `.cause`. That rewrap reset `.name` to
+the generic `"Error"` even when there was nothing to fold in — including on
+a request-timeout abort, whose real rejection (confirmed by running a live
+aborted undici fetch, not just reading source) is a `DOMException` with
+`.name === "AbortError"` and no distinct `.cause`. `isRetryable()` branches
+on `error.name === "AbortError"`; with `.name` silently reset, that branch
+never matched, the `"fetch"`-substring fallback didn't match either (the
+real message is `"This operation was aborted"`), and `isRetryable()` fell
+through to `false` — every timeout across all three `fetchWithCause()` call
+sites (`request()`, `uploadMedia()`, `fetchExternal()`) stopped retrying,
+fleet-wide, silently. Fixed by making `fetchWithCause()` only construct a
+new `Error` when there's an actual `.cause` message to add; otherwise it
+rethrows the original caught error completely unchanged, preserving
+`.name`/`.cause`/subclass identity. Kept as an amendment to the same
+`FORK-LOCAL PATCH`, not a new patch category. Added
+`src/services/api-client.test.ts` (the first test file for this repo's
+`api-client.ts`) asserting an AbortError thrown by the underlying fetch
+comes out of `fetchWithCause()` with `.name` still `"AbortError"`. Verified:
+typecheck, build, test, lint, format:check all clean.
+
 **2026-08-18 — transport failures now surface their real cause
 (MCP-F08).** `api-client.ts`'s three `undiciFetch` call sites shared Node
 global `fetch`'s bare `"fetch failed"` opacity on a network-level error
