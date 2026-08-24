@@ -26,9 +26,14 @@ hard way. Fixed by constructing the `FormData` from the `undici` package
 in CLAUDE.md alongside the other four). Added a regression test to
 `api-client.test.ts` asserting the body handed to `undiciFetch` is
 undici's own `FormData`, not the global one. Verified: typecheck, build,
-test (15/15), lint, format:check all clean locally. **Not yet redeployed**
-— the live NAS container (Portainer stack 171) is still running the
-pre-fix image until this is pushed and the auto-redeploy picks it up.
+test (15/15), lint, format:check all clean locally. Pushed, CI green on
+the real run (Test/gitleaks/Publish Docker image, commit `4b12a85`),
+redeployed via `portainer_redeploy_git_stack`, and confirmed against the
+live container (`docker inspect`'s `org.opencontainers.image.revision`
+matches `4b12a85`, fresh `StartedAt`) — then re-ran `atlas_upload_media`
+against the real deployed server and it succeeded, returning a real
+`atlas-img.oss-accelerate-overseas.aliyuncs.com` URL. Fix verified live,
+not just locally.
 
 **2026-08-18 — fixed a same-day regression in the MCP-F08 fix: timeouts had
 silently stopped retrying.** The `fetchWithCause()` helper added earlier
@@ -300,10 +305,9 @@ path (Phase 2's whole point) rather than a startup crash.
 
 - **RESOLVED 2026-08-24** — Real end-to-end test of `atlas_upload_media`
   over HTTP transport with a file placed under the mounted
-  `HOST_UPLOAD_DIR`: run live, and it failed — see "Current phase" above
-  for the bug found and fixed. Still outstanding: confirm the *fix* itself
-  end-to-end against the redeployed NAS container (fixed and tested
-  locally; not yet redeployed/re-verified live as of this writing).
+  `HOST_UPLOAD_DIR`: run live, found a real bug (see "Current phase"
+  above), fixed, redeployed, and re-verified live against the deployed
+  NAS container — a real upload now succeeds and returns a working URL.
 - A real `ATLASCLOUD_API_KEY`-backed smoke test of a billable tool
   (`atlas_generate_image`, `atlas_chat`) succeeding end-to-end — validation
   so far confirms the unauthenticated path and the no-key failure path,
