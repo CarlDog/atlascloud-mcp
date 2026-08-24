@@ -31,7 +31,7 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
     here is drift.
   - `src/services/`, `src/tools/`, `src/utils/`, `src/types.ts`,
     `src/constants.ts` — **upstream's original business logic, mostly
-    untouched.** Four deliberate, marked `FORK-LOCAL PATCH` exceptions:
+    untouched.** Five deliberate, marked `FORK-LOCAL PATCH` exceptions:
     - `src/services/doc-fetcher.ts`'s `getModels()` gained a disk-backed
       cache layer underneath its existing in-memory one (2026-08-05) —
       see README "Model catalog cache".
@@ -71,6 +71,19 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
       to decide whether to retry. Getting this wrong doesn't error; it
       just silently stops retrying every timeout fleet-wide. Guarded by
       `src/services/api-client.test.ts`.
+    - `src/services/api-client.ts`'s `uploadMedia()` now builds its
+      `FormData` from the `undici` package instead of the global
+      constructor (2026-08-24, same class of bug as MCP-F07) — undici's
+      own `fetch()` decides whether to serialize a body as
+      `multipart/form-data` via `instanceof` against *its own* `FormData`
+      class, so the global instance upstream used silently failed that
+      check: the request still went out, just with no multipart boundary
+      or Content-Type header, and Atlas Cloud's real API rejected every
+      upload with "file is required: request Content-Type isn't
+      multipart/form-data". Found live while generating story-art
+      portraits through mnemosyne-mcp. Guarded by a new test in
+      `src/services/api-client.test.ts` asserting the body handed to
+      `undiciFetch` is undici's own `FormData`.
 
     Everything else in these directories stays untouched; edit only to
     pull in an upstream `git merge` — see "Relationship to upstream"
@@ -83,16 +96,16 @@ See [STATUS.md](STATUS.md) — the single source of truth for project state.
 This is a **deployment-layer fork**, mostly. Business logic
 (`src/services/`, `src/tools/*.ts`, `src/utils/`) stays untouched from
 upstream so `git fetch upstream && git merge` should stay low-conflict —
-with four deliberate exceptions, all marked `FORK-LOCAL PATCH` in their
+with five deliberate exceptions, all marked `FORK-LOCAL PATCH` in their
 commit messages (`doc-fetcher.ts`'s disk cache, `upload.ts`'s
-transport-aware description, and `api-client.ts`'s two undici-related
-fixes — proxy dispatcher honouring and transport-error cause surfacing —
-see above). Each is kept minimal and additive (new imports, new helper
-functions, existing call sites redirected to them) specifically to keep
-a future upstream merge on `api-client.ts` tractable rather than a full
-rewrite. Two real, known gaps still exist and are deliberately deferred
-rather than silently patched — see "Known gaps" in
-[STATUS.md](STATUS.md).
+transport-aware description, and `api-client.ts`'s three undici-related
+fixes — proxy dispatcher honouring, transport-error cause surfacing, and
+`uploadMedia()`'s FormData class mismatch — see above). Each is kept
+minimal and additive (new imports, new helper functions, existing call
+sites redirected to them) specifically to keep a future upstream merge on
+`api-client.ts` tractable rather than a full rewrite. Two real, known gaps
+still exist and are deliberately deferred rather than silently patched —
+see "Known gaps" in [STATUS.md](STATUS.md).
 
 An `upstream` remote points at `AtlasCloudAI/mcp-server`. To pull in
 upstream's tool improvements:

@@ -4,9 +4,31 @@
 CLAUDE.md, README.md, MEMORY.md, or an OpenChronicle memory — those
 reference this file.
 
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-24
 
 ## Current phase
+
+**2026-08-24 — fixed a live bug in `atlas_upload_media`: it never actually
+sent a multipart request.** Found while using mnemosyne-mcp to generate
+story-art character portraits and needing to feed a reference image
+through an image-editing model. Upstream's `uploadMedia()` built its
+`FormData` with the *global* constructor but sent it through `undiciFetch`
+(imported explicitly for the MCP-F07 proxy fix) — undici's own `fetch()`
+only serializes a body as `multipart/form-data` when it is `instanceof`
+*its own* `FormData` class, a different module instance from the global
+one, so the check silently failed. The request still went out, just with
+no multipart boundary or Content-Type header; Atlas Cloud's real API
+rejected every upload with "file is required: request Content-Type isn't
+multipart/form-data". This resolves the "Open questions" item below about
+`atlas_upload_media` never having been live-tested — it now has been, the
+hard way. Fixed by constructing the `FormData` from the `undici` package
+(a fifth `FORK-LOCAL PATCH` exception, same class of bug as MCP-F07, marked
+in CLAUDE.md alongside the other four). Added a regression test to
+`api-client.test.ts` asserting the body handed to `undiciFetch` is
+undici's own `FormData`, not the global one. Verified: typecheck, build,
+test (15/15), lint, format:check all clean locally. **Not yet redeployed**
+— the live NAS container (Portainer stack 171) is still running the
+pre-fix image until this is pushed and the auto-redeploy picks it up.
 
 **2026-08-18 — fixed a same-day regression in the MCP-F08 fix: timeouts had
 silently stopped retrying.** The `fetchWithCause()` helper added earlier
@@ -276,11 +298,12 @@ path (Phase 2's whole point) rather than a startup crash.
 
 ## Open questions (still to validate)
 
-- Real end-to-end test of `atlas_upload_media` over HTTP transport with a
-  file placed under the mounted `HOST_UPLOAD_DIR` (the mitigation for its
-  local-`file_path` assumption breaking across the stdio/HTTP boundary) —
-  needs a real, funded Atlas Cloud API key (the upload endpoint requires
-  auth), not yet run.
+- **RESOLVED 2026-08-24** — Real end-to-end test of `atlas_upload_media`
+  over HTTP transport with a file placed under the mounted
+  `HOST_UPLOAD_DIR`: run live, and it failed — see "Current phase" above
+  for the bug found and fixed. Still outstanding: confirm the *fix* itself
+  end-to-end against the redeployed NAS container (fixed and tested
+  locally; not yet redeployed/re-verified live as of this writing).
 - A real `ATLASCLOUD_API_KEY`-backed smoke test of a billable tool
   (`atlas_generate_image`, `atlas_chat`) succeeding end-to-end — validation
   so far confirms the unauthenticated path and the no-key failure path,

@@ -1,6 +1,11 @@
 import { readFile } from "fs/promises";
 import { basename } from "path";
-import { ProxyAgent, fetch as undiciFetch, type Dispatcher } from "undici";
+import {
+  ProxyAgent,
+  fetch as undiciFetch,
+  FormData as UndiciFormData,
+  type Dispatcher,
+} from "undici";
 import {
   API_BASE,
   LLM_API_BASE,
@@ -273,7 +278,19 @@ export async function uploadMedia(filePath: string): Promise<UploadResponse> {
   const fileBuffer = await readFile(filePath);
   const fileName = basename(filePath);
 
-  const formData = new FormData();
+  // FORK-LOCAL PATCH (not upstream; same class of bug as MCP-F07's
+  // ProxyAgent fix above). undici's own fetch() decides whether to
+  // serialize a request body as multipart/form-data via `body instanceof
+  // FormData` against ITS OWN FormData class -- Node's global FormData
+  // (upstream's original `new FormData()` here) is a different module
+  // instance and silently fails that check. The request still goes out,
+  // but with no multipart boundary and no multipart/form-data
+  // Content-Type header, so Atlas Cloud's real API rejects it with "file
+  // is required: request Content-Type isn't multipart/form-data" --
+  // confirmed live, 2026-08-24. Must construct the FormData from the
+  // `undici` package (imported above as UndiciFormData) so the instance
+  // undiciFetch receives actually satisfies its own instanceof check.
+  const formData = new UndiciFormData();
   formData.append("file", new Blob([fileBuffer]), fileName);
 
   const url = `${API_BASE}/model/uploadMedia`;

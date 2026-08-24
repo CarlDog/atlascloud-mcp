@@ -72,6 +72,20 @@ plus a deployment layer.
 - `SERVER_VERSION` hardcoded `"1.4.0"` in `src/index.ts` while
   `package.json` said `"1.5.0"` — now sourced from `src/shared/version.ts`
   and asserted equal to `package.json` by `version-sync.test.ts`.
+- `atlas_upload_media` silently failed to send a multipart request at all.
+  Upstream's `uploadMedia()` built its body with the *global* `FormData`
+  constructor but sent it through `undiciFetch` (imported explicitly for
+  the MCP-F07 proxy fix) — undici's own `fetch()` only serializes a body
+  as `multipart/form-data` when it is `instanceof` *its own* `FormData`
+  class, a different module instance from the global one. The request
+  still went out, just with no multipart boundary or Content-Type header,
+  so Atlas Cloud's real API rejected every upload with "file is required:
+  request Content-Type isn't multipart/form-data" — found live, 2026-08-24,
+  while generating story-art portraits through mnemosyne-mcp. Fixed by
+  constructing the `FormData` from the `undici` package (a fifth
+  `FORK-LOCAL PATCH` exception, same class of bug as MCP-F07). Regression
+  test added to `api-client.test.ts` asserting the body handed to
+  `undiciFetch` is undici's own `FormData`, not the global one.
 
 ### Removed
 
