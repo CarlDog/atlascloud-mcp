@@ -266,9 +266,13 @@ upstream's business logic, which this fork avoids to stay mergeable:
   path-traversal issue in `hono`'s static-file serving — this server uses
   Express, not Hono). Left for Dependabot rather than a manual force-bump
   of the SDK's pinned version.
-- Deploy: **live** on the NAS (Portainer stack 171, `carldog-nas:3010`),
-  `running`/reachable, verified via `portainer_get_container` and a live
-  HTTP request — not just a deploy-success toast.
+- Deploy: **not on the NAS.** Was live 2026-08-05 (Portainer stack 171,
+  `carldog-nas:3010`, verified via `portainer_get_container` and a live
+  HTTP request — not just a deploy-success toast); decommissioned since —
+  as of 2026-08-25, Portainer has no stack 171 and no `atlascloud`
+  container on endpoint 2. The npm package (`npx -y atlascloud-mcp`, run
+  locally via stdio) is the one actually in use fleet-wide now; this
+  repo's Docker/Portainer deployment is dormant code, not a live service.
 
 ## Live validation (2026-08-05)
 
