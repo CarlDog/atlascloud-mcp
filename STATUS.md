@@ -4,7 +4,7 @@
 CLAUDE.md, README.md, MEMORY.md, or an OpenChronicle memory — those
 reference this file.
 
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-28
 
 ## Current phase
 

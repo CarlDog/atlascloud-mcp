@@ -271,9 +271,9 @@ cache (`src/services/doc-fetcher.ts`): on a cache miss, it first checks a
 JSON snapshot on disk before hitting the live API, and writes a fresh
 snapshot after any live fetch. This means a container restart doesn't
 pay for a live re-fetch as long as the snapshot is under 24h old — useful
-since this NAS runs the container as a long-lived Portainer stack that
-can restart (redeploys, host reboots) far more often than the catalog
-itself changes.
+for any long-lived Docker/Portainer deployment, where redeploys and host
+reboots restart the container far more often than the catalog itself
+changes.
 
 - **Docker**: `HOST_CACHE_DIR` (required, no relative default — same
   Portainer git-stack redeploy risk as `HOST_UPLOAD_DIR` above) is
